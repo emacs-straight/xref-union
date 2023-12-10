@@ -30,13 +30,15 @@
 ;; exclude certain modes, take a look at the user option
 ;; `xref-union-excluded-backends'.
 
-;; You can also manually make use of `xref-union' by adding an object
-;; of the form (union XREF-BACKEND-1 XREF-BACKEND-2 ...) to
-;; `xref-backend-functions'
+;; You can also manually make use of `xref-union' by adding an
+;; function that returns an object of the form (union XREF-BACKEND-1
+;; XREF-BACKEND-2 ...) to `xref-backend-functions'.
 
 ;;; Code:
 
 (eval-when-compile (require 'subr-x))
+(eval-when-compile (require 'cl-lib))
+(require 'seq)
 (require 'xref)
 
 (defgroup xref-union '()
@@ -50,6 +52,11 @@ a non-nil value is returned, the backend will not be added to the
 union backend, otherwise it will be."
   :type 'function)
 
+(defcustom xref-union-hook-depth -95    ;-100 has the highest priority
+  "Priority of the xref-union Xref backend.
+Consult `add-hook' for the interpretation of DEPTH."
+  :type 'number)
+
 
 ;;;; Xref interface
 
@@ -59,68 +66,72 @@ Same in this context means they reference the same object."
   (= (xref-location-marker (xref-item-location l1))
      (xref-location-marker (xref-item-location l2))))
 
-(cl-defmethod xref-backend-identifier-at-point ((backends (head 'union)))
+(cl-defmethod xref-backend-identifier-at-point ((backends (head union)))
   "Collect the results of multiple Xref BACKENDS."
-  (seq-uniq
-   (cl-loop for backend in (cdr backends)
-	    append (xref-backend-identifier-at-point backend))
-   #'xref-union-same-p))
+  (cl-loop for backend in (cdr backends)
+           when (xref-backend-identifier-at-point backend)
+           return it))
 
-(cl-defmethod xref-backend-identifier-completion-table ((backends (head 'union)))
+(cl-defmethod xref-backend-identifier-completion-table ((backends (head union)))
   "Collect the results of multiple Xref BACKENDS."
   (lambda (string pred _action)
     (cl-loop for backend in (cdr backends)
-	     append (let ((b (xref-backend-identifier-at-point backend)))
+             append (let ((b (xref-backend-identifier-completion-table backend)))
                       (all-completions string b pred)))))
 
-(cl-defmethod xref-backend-definitions ((backends (head 'union)) ident)
+(cl-defmethod xref-backend-definitions ((backends (head union)) ident)
   "Collect the results of multiple Xref BACKENDS.
 IDENT is specified in `xref-backend-definitions'."
   (seq-uniq
    (cl-loop for backend in (cdr backends)
-	    append (xref-backend-definitions backend ident))
+            append (xref-backend-definitions backend ident))
    #'xref-union-same-p))
 
-(cl-defmethod xref-backend-references ((backends (head 'union)) ident)
+(cl-defmethod xref-backend-references ((backends (head union)) ident)
   "Collect the results of multiple Xref BACKENDS.
 IDENT is specified in `xref-backend-references'."
   (seq-uniq
    (cl-loop for backend in (cdr backends)
-	    append (xref-backend-references backend ident))
+            append (xref-backend-references backend ident))
    #'xref-union-same-p))
 
-(cl-defmethod xref-backend-apropos ((backends (head 'union)) pattern)
+(cl-defmethod xref-backend-apropos ((backends (head union)) pattern)
   "Collect the results of multiple Xref BACKENDS.
 PATTERN is specified in `xref-backend-apropos'."
   (seq-uniq
    (cl-loop for backend in (cdr backends)
-	    append (xref-backend-apropos backend pattern))
+            append (xref-backend-apropos backend pattern))
    #'xref-union-same-p))
 
 
 ;;;; Minor mode
 
-(defvar-local xref-union--current nil
-  "Reference to the current union backend.")
+(defun xref-union--backend ()
+  "Generate a Xref backend unifying others."
+  (let (backends)
+    (run-hook-wrapped
+     'xref-backend-functions
+     (lambda (b)
+       (unless (or (funcall xref-union-excluded-backends b)
+                   (eq b #'xref-union--backend))
+         (let ((hook (gensym)))
+           (add-hook hook b)
+           (let ((b (run-hook-with-args-until-success hook)))
+             (when b (push b backends)))))
+       nil))
+    (and backends (cons 'union (delete-dups backends)))))
 
 (define-minor-mode xref-union-mode
   "Enable a Xref backend that combines all others."
   :global nil
-  (when xref-union--current
-    (remove-hook 'xref-backend-functions xref-union--current))
-  (when xref-union-mode
-    (let (backends)
-      ;; Collect all (local and global) functions in
-      ;; `xref-backend-functions' into a local list.
-      (run-hook-wrapped
-       'xref-backend-functions
-       (lambda (b)
-         (setq b (funcall b))
-         (when (and b (funcall xref-union-excluded-backends b))
-           (push b backends))
-         nil))
-      (setq xref-union--current (cons 'union backends))
-      (add-hook 'xref-backend-functions xref-union--current))))
+  (if xref-union-mode
+      (add-hook 'xref-backend-functions
+                #'xref-union--backend
+                xref-union-hook-depth
+                t)
+    (remove-hook 'xref-backend-functions
+                 #'xref-union--backend
+                 t)))
 
 ;; LocalWords: backend backends
 
