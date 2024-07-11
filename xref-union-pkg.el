@@ -1,0 +1,2 @@
+;; Generated package description from xref-union.el  -*- no-byte-compile: t -*-
+(define-package "xref-union" "0.2.0.0.20231225.162837" "Combine multiple Xref backends" '((emacs "25.1")) :commit "2bb88d0dc526177c3c6612d6585cee6b2c57803a" :authors '(("Philip Kaludercic" . "philipk@posteo.net")) :maintainer '("Philip Kaludercic" . "~pkal/public-inbox@lists.sr.ht") :url "https://git.sr.ht/~pkal/xref-union/")
