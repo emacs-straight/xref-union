@@ -1,2 +1,2 @@
 ;; Generated package description from xref-union.el  -*- no-byte-compile: t; lexical-binding:t -*-
-(define-package "xref-union" "0.2.0.0.20260220.162809" "Combine multiple Xref backends" '((emacs "25.1")) :commit "9a8df575385d0061c35b23026b1a4ed5c31cc6f9" :authors '(("Philip Kaludercic" . "philipk@posteo.net")) :maintainer '("Philip Kaludercic" . "philipk@posteo.net") :url "https://codeberg.org/pkal/xref-union.el")
+(define-package "xref-union" "0.2.0.0.20260222.131318" "Combine multiple Xref backends" '((emacs "25.1")) :commit "b84e22be16cf40f19b827e0097a6727ab9f71652" :authors '(("Philip Kaludercic" . "philipk@posteo.net")) :maintainer '("Philip Kaludercic" . "philipk@posteo.net") :url "https://codeberg.org/pkal/xref-union.el")
